@@ -102,9 +102,9 @@ elif page == "Prediksi Mobil":
 elif page == "Tren Harga Mobil":
     st.title("📈 Tren Harga Mobil")
     if not prediksi_mobil.empty:
-        if "year" in prediksi_mobil.columns and "price" in prediksi_mobil.columns:
+        if "rata2_sekarang" in prediksi_mobil.columns and "rata2_prediksi" in prediksi_mobil.columns:
             fig, ax = plt.subplots()
-            prediksi_mobil.groupby("year")["price"].mean().plot(ax=ax, marker="o")
+            prediksi_mobil.groupby("rata2_sekarang")["rata2_prediksi"].mean().plot(ax=ax, marker="o")
             ax.set_ylabel("Harga Rata-rata")
             ax.set_xlabel("Tahun")
             ax.set_title("Tren Harga Mobil per Tahun")
