@@ -5,7 +5,7 @@ import pickle
 import os
 
 # ==============================
-# Fungsi konversi model lama ke format joblib terbaru
+# Fungsi konversi model lama ke joblib
 # ==============================
 def convert_old_pickle_to_joblib(old_file, new_file):
     try:
@@ -14,58 +14,56 @@ def convert_old_pickle_to_joblib(old_file, new_file):
         joblib.dump(model, new_file)
         return model
     except Exception as e:
-        st.error(f"Gagal mengonversi model lama: {e}")
+        st.error(f"Gagal konversi model: {e}")
         return None
 
 # ==============================
 # Fungsi memuat model
 # ==============================
-@st.cache_resource
-def load_model():
-    old_model_path = "best_model_car_price.pkl"
-    new_model_path = "converted_model.joblib"
-
-    if not os.path.exists(old_model_path):
-        st.error("File model tidak ditemukan.")
-        return None
-
-    # Coba load dengan joblib
+def load_model_from_file(file):
     try:
-        return joblib.load(old_model_path)
+        return joblib.load(file)
     except Exception as e1:
-        st.warning(f"Joblib gagal memuat model asli: {e1}")
-        # Coba pickle biasa
+        st.warning(f"Joblib gagal: {e1}")
         try:
-            with open(old_model_path, "rb") as f:
+            with open(file, "rb") as f:
                 return pickle.load(f)
         except Exception as e2:
             st.warning(f"Pickle standar gagal: {e2}")
-            # Coba pickle encoding latin1
             try:
-                return convert_old_pickle_to_joblib(old_model_path, new_model_path)
+                new_file = "converted_model.joblib"
+                return convert_old_pickle_to_joblib(file, new_file)
             except Exception as e3:
                 st.error(f"Gagal memuat model: {e3}")
                 return None
 
 # ==============================
-# Fungsi memuat data CSV
+# Sidebar Upload
 # ==============================
-@st.cache_data
-def load_data():
-    try:
-        return pd.read_csv("hasil_prediksi.csv")
-    except Exception as e:
-        st.error(f"Gagal memuat CSV: {e}")
-        return pd.DataFrame()
+st.sidebar.title("⚙️ Pengaturan")
+uploaded_model = st.sidebar.file_uploader("Upload Model (.pkl)", type=["pkl", "joblib"])
+uploaded_csv = st.sidebar.file_uploader("Upload Data CSV", type=["csv"])
 
 # ==============================
-# Muat data dan model
+# Load Data
 # ==============================
-data = load_data()
-model = load_model()
+if uploaded_csv is not None:
+    data = pd.read_csv(uploaded_csv)
+else:
+    data = pd.DataFrame()
 
 # ==============================
-# Sidebar Navigasi
+# Load Model
+# ==============================
+model = None
+if uploaded_model is not None:
+    temp_model_path = "uploaded_model.pkl"
+    with open(temp_model_path, "wb") as f:
+        f.write(uploaded_model.read())
+    model = load_model_from_file(temp_model_path)
+
+# ==============================
+# Navigasi
 # ==============================
 st.sidebar.title("Navigasi")
 menu = st.sidebar.radio("Pilih Halaman:", ["Informasi Mobil", "Prediksi Mobil"])
@@ -82,25 +80,23 @@ if menu == "Informasi Mobil":
             st.subheader("Ringkasan Harga")
             st.write(data["harga"].describe())
     else:
-        st.warning("Dataset tidak tersedia.")
+        st.warning("Dataset belum diupload.")
 
 # ==============================
 # Halaman 2: Prediksi Mobil
 # ==============================
 elif menu == "Prediksi Mobil":
     st.title("🔍 Prediksi Harga Mobil")
-
     if model is None:
-        st.error("Model belum berhasil dimuat.")
+        st.error("Model belum berhasil dimuat. Upload file model yang benar.")
     else:
-        st.subheader("Masukkan Informasi Mobil")
-
-        # Tentukan input fitur
-        if not data.empty:
-            fitur_text = [col for col in data.columns if col != "harga"]
-        else:
+        if data.empty:
+            st.warning("Upload dataset agar fitur input otomatis tersedia.")
             fitur_text = ["merk", "model", "tahun", "transmisi", "kilometer", "bahan_bakar", "warna"]
+        else:
+            fitur_text = [col for col in data.columns if col.lower() != "harga"]
 
+        st.subheader("Masukkan Informasi Mobil")
         input_data = {}
         for col in fitur_text:
             if col.lower() in ["tahun", "kilometer"]:
