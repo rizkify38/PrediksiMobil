@@ -2,123 +2,109 @@ import streamlit as st
 import pandas as pd
 import joblib
 import pickle
+import os
 
 # ==============================
-# CONFIG
-# ==============================
-st.set_page_config(page_title="Prediksi Harga Mobil", layout="wide")
-
-# ==============================
-# LOAD DATA
+# Fungsi untuk memuat data CSV
 # ==============================
 @st.cache_data
 def load_data():
     try:
-        return pd.read_csv("hasil_prediksi.csv")
+        data = pd.read_csv("hasil_prediksi.csv")
+        return data
     except Exception as e:
-        st.error(f"Gagal memuat data: {e}")
+        st.error(f"Gagal memuat data CSV: {e}")
         return pd.DataFrame()
 
 # ==============================
-# LOAD MODEL (dengan fallback encoding latin1)
+# Fungsi untuk memuat model PKL
 # ==============================
 @st.cache_resource
 def load_model():
-    model = None
+    model_path = "best_model_car_price.pkl"
+    if not os.path.exists(model_path):
+        st.error("File model tidak ditemukan.")
+        return None
+
     try:
-        model = joblib.load("best_model_car_price.pkl")
-    except Exception:
+        return joblib.load(model_path)
+    except Exception as e:
+        st.warning(f"Joblib gagal memuat model: {e}")
         try:
-            with open("best_model_car_price.pkl", "rb") as f:
-                model = pickle.load(f)
-        except Exception:
+            with open(model_path, "rb") as f:
+                return pickle.load(f)
+        except Exception as e2:
             try:
-                with open("best_model_car_price.pkl", "rb") as f:
-                    model = pickle.load(f, encoding="latin1")
-            except Exception as e:
-                st.error(f"Gagal memuat model (semua metode gagal): {e}")
+                with open(model_path, "rb") as f:
+                    return pickle.load(f, encoding="latin1")
+            except Exception as e3:
+                st.error(f"Gagal memuat model: {e3}")
                 return None
-    return model
 
 # ==============================
-# LOAD
+# Muat data dan model
 # ==============================
 data = load_data()
 model = load_model()
 
 # ==============================
-# DEBUG INFO
+# Sidebar Navigasi
 # ==============================
-with st.expander("🔍 Debug Info"):
-    st.write("**Kolom Dataset:**", data.columns.tolist() if not data.empty else "Dataset kosong")
-    st.write("**Tipe Model:**", type(model))
+st.sidebar.title("Navigasi")
+menu = st.sidebar.radio("Pilih Halaman:", ["Informasi Mobil", "Prediksi Mobil"])
 
 # ==============================
-# SIDEBAR MENU
+# Halaman 1: Informasi Mobil
 # ==============================
-menu = st.sidebar.radio("Pilih Halaman:", ["📄 Informasi Mobil", "🔍 Prediksi Harga Mobil"])
-
-# ==============================
-# HALAMAN 1: INFORMASI MOBIL
-# ==============================
-if menu == "📄 Informasi Mobil":
-    st.title("📄 Informasi Mobil")
-    if data.empty:
-        st.error("Dataset tidak ditemukan atau kosong.")
-    else:
+if menu == "Informasi Mobil":
+    st.title("📊 Informasi Data Mobil")
+    st.write("Data ini berisi informasi mobil yang tersedia dalam dataset.")
+    
+    if not data.empty:
         st.dataframe(data)
-
-        st.subheader("Ringkasan Statistik")
-        st.write(data.describe())
-
-        # Filter jika ada kolom kategorikal
-        cat_cols = data.select_dtypes(include=['object']).columns.tolist()
-        if len(cat_cols) > 0:
-            filter_col = st.selectbox("Pilih kolom untuk filter:", options=cat_cols)
-            unique_vals = ["Semua"] + sorted(data[filter_col].dropna().unique())
-            selected_val = st.selectbox(f"Pilih {filter_col}:", options=unique_vals)
-            if selected_val != "Semua":
-                st.write(data[data[filter_col] == selected_val])
-            else:
-                st.write(data)
-        else:
-            st.warning("Tidak ada kolom kategorikal untuk filter.")
+        st.write(f"Jumlah data: {len(data)}")
+        
+        # Tambahkan analisis sederhana
+        if "harga" in data.columns:
+            st.subheader("Ringkasan Harga")
+            st.write(data["harga"].describe())
+    else:
+        st.warning("Dataset tidak tersedia atau gagal dimuat.")
 
 # ==============================
-# HALAMAN 2: PREDIKSI HARGA MOBIL
+# Halaman 2: Prediksi Mobil
 # ==============================
-elif menu == "🔍 Prediksi Harga Mobil":
+elif menu == "Prediksi Mobil":
     st.title("🔍 Prediksi Harga Mobil")
 
     if model is None:
-        st.error("Model belum berhasil dimuat.")
+        st.error("Model belum berhasil dimuat. Pastikan file PKL valid.")
     else:
-        # Tentukan fitur berdasarkan dataset (kecuali kolom harga)
+        # Form input prediksi
+        st.subheader("Masukkan Informasi Mobil")
+        
+        # Tentukan input sesuai dengan kolom fitur model
+        # Jika pipeline, kita ambil dari dataset contoh
         if not data.empty:
-            feature_names = [col for col in data.columns if col.lower() not in ['harga', 'prediksi', 'price']]
+            example = data.iloc[0]
+            fitur_text = [col for col in data.columns if col != "harga"]
         else:
-            st.warning("Dataset kosong, gunakan input default.")
-            feature_names = ["merk", "tahun", "transmisi", "jarak_tempuh", "bahan_bakar", "kapasitas_mesin"]
+            # Jika data kosong, tentukan fitur manual
+            fitur_text = ["merk", "model", "tahun", "transmisi", "kilometer", "bahan_bakar", "warna"]
 
-        st.write("Masukkan detail mobil untuk prediksi:")
-
-        input_dict = {}
-        for col in feature_names:
-            if not data.empty and col in data.columns:
-                if pd.api.types.is_numeric_dtype(data[col]):
-                    default_val = int(data[col].median())
-                    input_dict[col] = st.number_input(f"{col}", min_value=0, value=default_val)
-                else:
-                    options = sorted(data[col].dropna().unique())
-                    input_dict[col] = st.selectbox(f"{col}", options=options)
+        input_data = {}
+        for col in fitur_text:
+            if col.lower() in ["tahun", "kilometer"]:
+                input_data[col] = st.number_input(f"{col}", min_value=0)
             else:
-                input_dict[col] = st.text_input(f"{col}")
+                input_data[col] = st.text_input(f"{col}")
 
         if st.button("Prediksi Harga"):
             try:
-                input_df = pd.DataFrame([input_dict])
-                prediksi = model.predict(input_df)[0]
-                st.success(f"💰 Prediksi Harga Mobil: Rp {prediksi:,.0f}")
+                df_input = pd.DataFrame([input_data])
+                prediksi = model.predict(df_input)[0]
+                st.success(f"Prediksi Harga Mobil: Rp {prediksi:,.0f}")
             except Exception as e:
-                st.error(f"Terjadi error saat prediksi: {e}")
+                st.error(f"Gagal melakukan prediksi: {e}")
+
 
