@@ -16,6 +16,12 @@ def load_model():
 data = load_data()
 model = load_model()
 
+# Ambil feature names dari pipeline (jika ada)
+try:
+    feature_names = model.feature_names_in_
+except AttributeError:
+    feature_names = data.columns.tolist()
+
 # ==============================
 # Streamlit Pages
 # ==============================
@@ -38,12 +44,15 @@ if menu == "📄 Informasi Mobil":
     st.subheader("Ringkasan Statistik")
     st.write(data.describe())
 
-    # Filter berdasarkan merk
-    merk = st.selectbox("Pilih Merk Mobil:", options=["Semua"] + list(data['merk'].unique()))
-    if merk != "Semua":
-        st.write(data[data['merk'] == merk])
+    # Filter berdasarkan kolom jika ada 'merk'
+    if 'merk' in data.columns:
+        merk = st.selectbox("Pilih Merk Mobil:", options=["Semua"] + sorted(data['merk'].dropna().unique()))
+        if merk != "Semua":
+            st.write(data[data['merk'] == merk])
+        else:
+            st.write(data)
     else:
-        st.write(data)
+        st.warning("Kolom 'merk' tidak ditemukan di dataset.")
 
 # ==============================
 # Halaman 2: Prediksi Harga Mobil
@@ -52,28 +61,29 @@ elif menu == "🔍 Prediksi Harga Mobil":
     st.title("🔍 Prediksi Harga Mobil")
     st.write("Masukkan detail mobil untuk memprediksi harga.")
 
-    # Form input
-    merk = st.selectbox("Merk", options=data['merk'].unique())
-    tahun = st.number_input("Tahun Pembuatan", min_value=1990, max_value=2025, value=2020)
-    transmisi = st.selectbox("Transmisi", options=data['transmisi'].unique())
-    jarak_tempuh = st.number_input("Jarak Tempuh (km)", min_value=0, value=50000, step=1000)
-    bahan_bakar = st.selectbox("Bahan Bakar", options=data['bahan_bakar'].unique())
-    kapasitas_mesin = st.number_input("Kapasitas Mesin (cc)", min_value=600, max_value=5000, value=1500, step=100)
+    # Buat input sesuai feature_names
+    input_dict = {}
+    for col in feature_names:
+        if col in ['tahun', 'kapasitas_mesin', 'jarak_tempuh']:
+            input_dict[col] = st.number_input(f"{col}", min_value=0, value=2020 if col == 'tahun' else 1000)
+        else:
+            # Untuk kolom kategori, ambil opsi dari dataset
+            if col in data.columns:
+                options = sorted(data[col].dropna().unique())
+                if len(options) > 0:
+                    input_dict[col] = st.selectbox(f"{col}", options=options)
+                else:
+                    input_dict[col] = st.text_input(f"{col}")
+            else:
+                input_dict[col] = st.text_input(f"{col}")
 
     # Tombol Prediksi
     if st.button("Prediksi Harga"):
-        # Siapkan data input
-        input_data = pd.DataFrame({
-            'merk': [merk],
-            'tahun': [tahun],
-            'transmisi': [transmisi],
-            'jarak_tempuh': [jarak_tempuh],
-            'bahan_bakar': [bahan_bakar],
-            'kapasitas_mesin': [kapasitas_mesin]
-        })
+        input_df = pd.DataFrame([input_dict])
+        try:
+            prediksi = model.predict(input_df)[0]
+            st.success(f"💰 Prediksi Harga Mobil: Rp {prediksi:,.0f}")
+        except Exception as e:
+            st.error(f"Terjadi error saat prediksi: {e}")
 
-        # Prediksi
-        prediksi = model.predict(input_data)[0]
-
-        st.success(f"💰 Prediksi Harga Mobil: Rp {prediksi:,.0f}")
 
