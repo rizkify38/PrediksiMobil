@@ -4,7 +4,7 @@ import joblib
 import pickle
 
 # ==============================
-# CONFIGURASI PAGE
+# CONFIG
 # ==============================
 st.set_page_config(page_title="Prediksi Harga Mobil", layout="wide")
 
@@ -20,21 +20,29 @@ def load_data():
         return pd.DataFrame()
 
 # ==============================
-# LOAD MODEL (cek joblib / pickle)
+# LOAD MODEL (dengan fallback encoding latin1)
 # ==============================
 @st.cache_resource
 def load_model():
+    model = None
     try:
-        return joblib.load("best_model_car_price.pkl")
+        model = joblib.load("best_model_car_price.pkl")
     except Exception:
         try:
             with open("best_model_car_price.pkl", "rb") as f:
-                return pickle.load(f)
-        except Exception as e:
-            st.error(f"Gagal memuat model: {e}")
-            return None
+                model = pickle.load(f)
+        except Exception:
+            try:
+                with open("best_model_car_price.pkl", "rb") as f:
+                    model = pickle.load(f, encoding="latin1")
+            except Exception as e:
+                st.error(f"Gagal memuat model (semua metode gagal): {e}")
+                return None
+    return model
 
-# Load data dan model
+# ==============================
+# LOAD
+# ==============================
 data = load_data()
 model = load_model()
 
@@ -63,7 +71,7 @@ if menu == "📄 Informasi Mobil":
         st.subheader("Ringkasan Statistik")
         st.write(data.describe())
 
-        # Cari kolom kategorikal untuk filter
+        # Filter jika ada kolom kategorikal
         cat_cols = data.select_dtypes(include=['object']).columns.tolist()
         if len(cat_cols) > 0:
             filter_col = st.selectbox("Pilih kolom untuk filter:", options=cat_cols)
@@ -94,7 +102,6 @@ elif menu == "🔍 Prediksi Harga Mobil":
 
         st.write("Masukkan detail mobil untuk prediksi:")
 
-        # Form input otomatis sesuai feature_names
         input_dict = {}
         for col in feature_names:
             if not data.empty and col in data.columns:
@@ -105,10 +112,8 @@ elif menu == "🔍 Prediksi Harga Mobil":
                     options = sorted(data[col].dropna().unique())
                     input_dict[col] = st.selectbox(f"{col}", options=options)
             else:
-                # Jika tidak ada di data, fallback input manual
                 input_dict[col] = st.text_input(f"{col}")
 
-        # Tombol Prediksi
         if st.button("Prediksi Harga"):
             try:
                 input_df = pd.DataFrame([input_dict])
@@ -116,3 +121,4 @@ elif menu == "🔍 Prediksi Harga Mobil":
                 st.success(f"💰 Prediksi Harga Mobil: Rp {prediksi:,.0f}")
             except Exception as e:
                 st.error(f"Terjadi error saat prediksi: {e}")
+
