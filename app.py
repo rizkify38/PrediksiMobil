@@ -59,10 +59,20 @@ elif page == "Prediksi Mobil":
         }])
 
         try:
-            prediction = model.predict(input_data)[0]
-            st.success(f"💰 Prediksi harga mobil: {prediction:,.2f}")
-        except Exception as e:
-            st.error(f"Terjadi kesalahan saat prediksi: {e}")
+        prediction = model.predict(input_data)[0]
+
+        # Kalau model mendukung probabilitas
+        if hasattr(model, "predict_proba"):
+            proba = model.predict_proba(input_data)[0]
+            st.subheader("📊 Probabilitas Prediksi")
+            st.write(f"🔻 Probabilitas Turun: **{proba[0]:.2f}**")
+            st.write(f"🔺 Probabilitas Naik : **{proba[1]:.2f}**")
+
+        # Hasil akhir
+        st.success(f"💰 Prediksi akhir: {'Naik' if prediction == 1 else 'Turun'}")
+
+    except Exception as e:
+        st.error(f"Terjadi kesalahan saat prediksi: {e}")
 
 # ======================
 # Halaman 3: Tren Harga Mobil
