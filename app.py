@@ -26,14 +26,11 @@ model = load_model()
 
 st.set_page_config(page_title="Prediksi Harga Mobil", layout="wide")
 
-# Debugging: tampilkan info model dan data
+# Debug Info
 with st.expander("🔍 Debug Info"):
-    st.write("**Data Columns:**", data.columns.tolist() if not data.empty else "Data kosong")
-    st.write("**Model Type:**", type(model))
-    if model is not None:
-        st.write(model)
+    st.write("**Kolom Dataset:**", data.columns.tolist() if not data.empty else "Dataset kosong")
+    st.write("**Tipe Model:**", type(model))
 
-# Sidebar
 menu = st.sidebar.radio("Pilih Halaman:", ["📄 Informasi Mobil", "🔍 Prediksi Harga Mobil"])
 
 # ==============================
@@ -49,15 +46,18 @@ if menu == "📄 Informasi Mobil":
         st.subheader("Ringkasan Statistik")
         st.write(data.describe())
 
-        # Filter merk jika ada
-        if 'merk' in data.columns:
-            merk = st.selectbox("Pilih Merk Mobil:", options=["Semua"] + sorted(data['merk'].dropna().unique()))
-            if merk != "Semua":
-                st.write(data[data['merk'] == merk])
+        # Cari kolom kategorikal untuk filter (jika ada)
+        cat_cols = data.select_dtypes(include=['object']).columns.tolist()
+        if len(cat_cols) > 0:
+            filter_col = st.selectbox("Pilih kolom untuk filter:", options=cat_cols)
+            unique_vals = ["Semua"] + sorted(data[filter_col].dropna().unique())
+            selected_val = st.selectbox(f"Pilih {filter_col}:", options=unique_vals)
+            if selected_val != "Semua":
+                st.write(data[data[filter_col] == selected_val])
             else:
                 st.write(data)
         else:
-            st.warning("Kolom 'merk' tidak ditemukan di dataset.")
+            st.warning("Tidak ada kolom kategorikal untuk filter.")
 
 # ==============================
 # Halaman 2: Prediksi Harga Mobil
@@ -68,26 +68,22 @@ elif menu == "🔍 Prediksi Harga Mobil":
     if model is None:
         st.error("Model belum berhasil dimuat.")
     else:
-        # Tentukan fitur berdasarkan dataset (fallback jika model tidak punya feature_names_in_)
+        # Gunakan kolom dataset selain target (misal 'harga')
         if not data.empty:
-            feature_names = [col for col in data.columns if col != 'harga']
+            feature_names = [col for col in data.columns if col.lower() not in ['harga', 'prediksi', 'price']]
         else:
-            feature_names = ["merk", "tahun", "transmisi", "jarak_tempuh", "bahan_bakar", "kapasitas_mesin"]
+            feature_names = []
 
         st.write("Masukkan detail mobil untuk prediksi:")
 
-        # Buat form input otomatis
         input_dict = {}
         for col in feature_names:
-            if col in ['tahun', 'kapasitas_mesin', 'jarak_tempuh']:
-                input_dict[col] = st.number_input(f"{col}", min_value=0, value=2020 if col == 'tahun' else 1000)
+            if pd.api.types.is_numeric_dtype(data[col]):
+                input_dict[col] = st.number_input(f"{col}", min_value=0, value=int(data[col].median()))
             else:
-                if col in data.columns:
-                    options = sorted(data[col].dropna().unique())
-                    if len(options) > 0:
-                        input_dict[col] = st.selectbox(f"{col}", options=options)
-                    else:
-                        input_dict[col] = st.text_input(f"{col}")
+                options = sorted(data[col].dropna().unique())
+                if len(options) > 0:
+                    input_dict[col] = st.selectbox(f"{col}", options=options)
                 else:
                     input_dict[col] = st.text_input(f"{col}")
 
