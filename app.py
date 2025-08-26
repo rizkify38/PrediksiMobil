@@ -101,16 +101,50 @@ elif page == "Prediksi Mobil":
 # ======================
 elif page == "Tren Harga Mobil":
     st.title("📈 Tren Harga Mobil")
+
     if not prediksi_mobil.empty:
-        if "rata2_sekarang" in prediksi_mobil.columns and "rata2_prediksi" in prediksi_mobil.columns:
-            fig, ax = plt.subplots()
-            prediksi_mobil.groupby("rata2_sekarang")["rata2_prediksi"].mean().plot(ax=ax, marker="o")
-            ax.set_ylabel("Harga Rata-rata")
-            ax.set_xlabel("Tahun")
-            ax.set_title("Tren Harga Mobil per Tahun")
+        # Jika dataset punya kolom make, rata2_sekarang, rata2_prediksi, tren_prediksi
+        if all(col in prediksi_mobil.columns for col in ["make", "rata2_sekarang", "rata2_prediksi", "tren_prediksi"]):
+            st.subheader("Perbandingan Harga Sekarang vs Prediksi per Merek")
+
+            fig, ax = plt.subplots(figsize=(10, 6))
+
+            # Bar chart harga sekarang
+            ax.bar(prediksi_mobil["make"], prediksi_mobil["rata2_sekarang"], 
+                   label="Rata-rata Sekarang", alpha=0.7)
+
+            # Bar chart harga prediksi
+            ax.bar(prediksi_mobil["make"], prediksi_mobil["rata2_prediksi"], 
+                   label="Rata-rata Prediksi", alpha=0.7)
+
+            ax.set_ylabel("Harga")
+            ax.set_xlabel("Merek Mobil")
+            ax.set_title("Perbandingan Harga Rata-rata Sekarang vs Prediksi")
+            ax.legend()
+            plt.xticks(rotation=45, ha="right")
+
             st.pyplot(fig)
+
+            # Tabel tren
+            st.subheader("📊 Tabel Tren Prediksi Mobil")
+            st.dataframe(prediksi_mobil)
+
+            # Visualisasi tren (Naik/Turun)
+            st.subheader("📈 Tren Prediksi per Merek")
+            fig2, ax2 = plt.subplots(figsize=(10, 6))
+            colors = prediksi_mobil["tren_prediksi"].map({"naik": "green", "turun": "red"})
+            ax2.bar(prediksi_mobil["make"], prediksi_mobil["rata2_prediksi"] - prediksi_mobil["rata2_sekarang"], 
+                    color=colors)
+            ax2.axhline(0, color="black", linewidth=0.8)
+            ax2.set_ylabel("Perubahan Harga (Prediksi - Sekarang)")
+            ax2.set_title("Tren Perubahan Harga Mobil per Merek")
+            plt.xticks(rotation=45, ha="right")
+
+            st.pyplot(fig2)
+
         else:
-            st.error("Data prediksi_mobil tidak memiliki kolom 'year' dan 'price'.")
+            st.error("Data prediksi_mobil tidak memiliki kolom 'make', 'rata2_sekarang', 'rata2_prediksi', 'tren_prediksi'.")
     else:
         st.warning("Data prediksi_mobil kosong atau file tidak ditemukan.")
+
 
