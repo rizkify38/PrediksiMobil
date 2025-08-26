@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 # ======================
 # Load data dan model
 # ======================
-hasil_prediksi = pd.read_csv("hasil_prediksi (1).csv")
+hasil_prediksi = pd.read_csv("hasil_prediksi.csv")
 prediksi_mobil = pd.read_csv("prediksi_mobil.csv")
 model = joblib.load("mobil_harga_model.joblib")
 
