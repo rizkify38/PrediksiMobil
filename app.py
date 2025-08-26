@@ -1,22 +1,20 @@
 import streamlit as st
 import pandas as pd
 import joblib
-import os
 
 # ==========================
-# Load data dan model
+# Load data & model
 # ==========================
 @st.cache_resource
-def load_resources():
-    base_dir = os.path.dirname(__file__)  # folder tempat app.py berada
-    data_path = os.path.join(base_dir, "hasil_prediksi.csv")
-    model_path = os.path.join(base_dir, "car_classification_model.joblib")
+def load_data():
+    return pd.read_csv("hasil_prediksi.csv")
 
-    df = pd.read_csv(data_path)
-    model = joblib.load(model_path)
-    return df, model
+@st.cache_resource
+def load_model():
+    return joblib.load("car_classification_model.joblib")
 
-df, model = load_resources()
+df = load_data()
+model = load_model()
 
 # ==========================
 # Sidebar Navigasi
@@ -29,7 +27,7 @@ page = st.sidebar.radio("Pilih Halaman:", ["Informasi Mobil", "Prediksi Mobil"])
 # ==========================
 if page == "Informasi Mobil":
     st.title("📊 Informasi Mobil")
-    st.write("Berikut adalah data mobil dari file **hasil_prediksi.csv**:")
+    st.write("Data dari **hasil_prediksi.csv**:")
 
     st.dataframe(df)
 
@@ -100,4 +98,5 @@ elif page == "Prediksi Mobil":
             st.success(f"✅ Hasil Prediksi: {prediction[0]}")
         except Exception as e:
             st.error(f"Terjadi error saat prediksi: {e}")
+
 
