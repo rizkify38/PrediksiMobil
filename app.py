@@ -1,8 +1,7 @@
 import streamlit as st
-import joblib
 import pandas as pd
-import numpy as np
-import matplotlib.pyplot as plt
+import joblib
+import altair as alt
 
 # ==============================
 # Load Model
@@ -10,149 +9,121 @@ import matplotlib.pyplot as plt
 model = joblib.load("best_model_car_price.pkl")
 
 # ==============================
-# Load Data untuk Dashboard
+# Konfigurasi Halaman
 # ==============================
-@st.cache_data
-def load_data():
-    try:
-        df = pd.read_csv("hasil_prediksi.csv")
-        return df
-    except FileNotFoundError:
-        st.warning("File hasil_prediksi.csv tidak ditemukan. Dashboard akan menampilkan data dummy.")
-        return None
-
-dashboard_data = load_data()
-
-# ==============================
-# Page Config
-# ==============================
-st.set_page_config(page_title="Prediksi Mobil Bagus", layout="wide")
+st.set_page_config(page_title="Prediksi Kelayakan Mobil", layout="wide")
 
 # ==============================
 # Sidebar Navigasi
 # ==============================
-menu = st.sidebar.radio("Navigasi", ["🏠 Beranda", "🔍 Prediksi", "📊 Dashboard Analitik"])
+menu = st.sidebar.radio("Navigasi", ["Beranda", "Prediksi Mobil", "Analitik"])
 
 # ==============================
 # Halaman Beranda
 # ==============================
-if menu == "🏠 Beranda":
-    st.title("🚗 Prediksi Mobil Bagus")
+if menu == "Beranda":
+    st.title("🚗 Prediksi Kelayakan Mobil")
     st.write("""
-    Aplikasi ini menggunakan **Machine Learning (Random Forest)** untuk memprediksi apakah sebuah mobil termasuk **Bagus** atau **Tidak Bagus**.
-    
-    ### 🔍 Cara Kerja Model:
-    - Menggunakan fitur seperti merek, bahan bakar, aspirasi, horsepower, harga, tahun, dll.
-    - Menambahkan fitur baru: **price_ratio, depreciation, car_age**.
-    - Target: Mobil dianggap **Bagus** jika `price_ratio > 0.8`.
+    **Aplikasi ini membantu Anda memprediksi apakah harga mobil layak (Bagus) atau tidak, 
+    berdasarkan fitur-fitur seperti merek, jenis bahan bakar, aspirasi, harga, dan lainnya.**
 
-    ### 📌 Fitur Aplikasi:
-    ✅ Prediksi mobil berdasarkan input data  
-    ✅ Visualisasi probabilitas hasil prediksi  
-    ✅ Dashboard analitik untuk melihat distribusi data dan insight  
-
-    Klik menu **Prediksi** di sidebar untuk mulai.
+    ### 🔍 Fitur Utama:
+    - Prediksi **Bagus / Tidak Bagus** berdasarkan data mobil
+    - Tampilkan **probabilitas prediksi** dalam bentuk grafik
+    - Dashboard **analitik distribusi prediksi**
     """)
 
 # ==============================
 # Halaman Prediksi
 # ==============================
-elif menu == "🔍 Prediksi":
-    st.title("🔍 Prediksi Mobil Bagus atau Tidak")
-    st.write("Isi data berikut untuk melakukan prediksi:")
+elif menu == "Prediksi Mobil":
+    st.title("🔍 Prediksi Mobil")
 
-    # Input Form
-    col1, col2 = st.columns(2)
-    with col1:
-        make = st.selectbox("Merek Mobil", ["toyota", "honda", "bmw", "audi", "nissan", "daihatsu", "suzuki"])
-        fuel_type = st.selectbox("Jenis Bahan Bakar", ["gas", "diesel"])
-        aspiration = st.selectbox("Aspirasi", ["std", "turbo"])
-        year = st.number_input("Tahun", min_value=1980, max_value=2025, value=2015)
-    with col2:
-        horsepower = st.number_input("Horsepower", min_value=40, max_value=400, value=100)
-        peak_rpm = st.number_input("Peak RPM", min_value=3000, max_value=7000, value=5000)
-        price = st.number_input("Harga (price)", min_value=500, value=10000)
-        resale_price = st.number_input("Harga Jual Kembali (resale_price)", min_value=500, value=8000)
+    # Form input
+    with st.form("form_prediksi"):
+        st.subheader("Masukkan Detail Mobil")
 
-    if st.button("Prediksi"):
-        try:
-            # Feature Engineering
-            price_ratio = resale_price / price
-            depreciation = price - resale_price
-            car_age = 2025 - year
+        make = st.selectbox("Merek Mobil", ['toyota', 'honda', 'nissan', 'mazda', 'bmw', 'mercedes'])
+        fuel_type = st.selectbox("Jenis Bahan Bakar", ['gas', 'diesel'])
+        aspiration = st.selectbox("Aspirasi", ['std', 'turbo'])
 
-            input_data = pd.DataFrame([{
-                "make": make,
-                "fuel-type": fuel_type,
-                "aspiration": aspiration,
-                "horsepower": horsepower,
-                "peak-rpm": peak_rpm,
-                "price": price,
-                "year": year,
-                "price_ratio": price_ratio,
-                "depreciation": depreciation,
-                "car_age": car_age
-            }])
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            horsepower = st.number_input("Horsepower", min_value=40, max_value=300, value=100)
+        with col2:
+            peak_rpm = st.number_input("Peak RPM", min_value=4000, max_value=7000, value=5000)
+        with col3:
+            year = st.number_input("Tahun", min_value=1980, max_value=2025, value=2015)
 
-            prediction = model.predict(input_data)[0]
-            prediction_proba = model.predict_proba(input_data)[0]
+        price = st.number_input("Harga (USD)", min_value=500, max_value=100000, value=20000)
+        resale_price = st.number_input("Harga Jual Kembali (USD)", min_value=500, max_value=100000, value=15000)
 
-            # Hasil Prediksi
-            label = "Bagus ✅" if prediction == 1 else "Tidak Bagus ❌"
-            st.subheader(f"Hasil Prediksi: **{label}**")
-            st.write(f"Probabilitas Bagus: {prediction_proba[1]*100:.2f}%")
-            st.write(f"Probabilitas Tidak Bagus: {prediction_proba[0]*100:.2f}%")
+        submitted = st.form_submit_button("Prediksi")
 
-            # Visualisasi Probabilitas (Bar Chart)
-            st.subheader("Visualisasi Probabilitas")
-            fig, ax = plt.subplots()
-            ax.bar(["Tidak Bagus", "Bagus"], prediction_proba, color=["red", "green"])
-            ax.set_ylabel("Probabilitas")
-            ax.set_ylim(0, 1)
-            st.pyplot(fig)
+    if submitted:
+        # Hitung fitur turunan
+        price_ratio = resale_price / price
+        depreciation = price - resale_price
+        car_age = 2025 - year
 
-        except Exception as e:
-            st.error(f"Terjadi error saat prediksi: {e}")
+        # Data untuk prediksi
+        input_data = pd.DataFrame({
+            'make': [make],
+            'fuel-type': [fuel_type],
+            'aspiration': [aspiration],
+            'horsepower': [horsepower],
+            'peak-rpm': [peak_rpm],
+            'price': [price],
+            'year': [year],
+            'price_ratio': [price_ratio],
+            'depreciation': [depreciation],
+            'car_age': [car_age]
+        })
+
+        # Prediksi
+        prediction = model.predict(input_data)[0]
+        probability = model.predict_proba(input_data)[0]
+
+        label = "Bagus" if prediction == 1 else "Tidak Bagus"
+        st.success(f"✅ Prediksi: **{label}**")
+        st.write(f"**Probabilitas Bagus:** {probability[1]*100:.2f}%")
+        st.write(f"**Probabilitas Tidak Bagus:** {probability[0]*100:.2f}%")
+
+        # Visualisasi probabilitas
+        prob_df = pd.DataFrame({
+            'Kategori': ['Tidak Bagus', 'Bagus'],
+            'Probabilitas': [probability[0]*100, probability[1]*100]
+        })
+
+        chart = alt.Chart(prob_df).mark_bar().encode(
+            x=alt.X('Kategori', sort=None),
+            y='Probabilitas',
+            color='Kategori'
+        ).properties(title="Visualisasi Probabilitas Prediksi")
+
+        st.altair_chart(chart, use_container_width=True)
 
 # ==============================
-# Halaman Dashboard Analitik
+# Halaman Analitik
 # ==============================
-elif menu == "📊 Dashboard Analitik":
+elif menu == "Analitik":
     st.title("📊 Dashboard Analitik")
-    if dashboard_data is not None:
-        st.write("Analisis distribusi prediksi dan fitur dari dataset **hasil_prediksi.csv**.")
+    st.write("Distribusi prediksi model berdasarkan data historis")
 
-        # Pastikan kolom prediction ada
-        if "prediction" not in dashboard_data.columns:
-            st.error("Kolom 'prediction' tidak ditemukan dalam file hasil_prediksi.csv.")
+    try:
+        df = pd.read_csv("hasil_prediksi.csv")
+        if 'target' not in df.columns:
+            st.warning("Data historis belum memiliki kolom target.")
         else:
-            col1, col2 = st.columns(2)
-            with col1:
-                st.subheader("Distribusi Prediksi")
-                pred_counts = dashboard_data["prediction"].value_counts()
-                labels = ["Tidak Bagus", "Bagus"] if len(pred_counts) == 2 else pred_counts.index.astype(str)
-                fig1, ax1 = plt.subplots()
-                ax1.pie(pred_counts, labels=labels, autopct='%1.1f%%', colors=["red", "green"])
-                st.pyplot(fig1)
+            distribusi = df['target'].value_counts().reset_index()
+            distribusi.columns = ['Kategori', 'Jumlah']
+            distribusi['Kategori'] = distribusi['Kategori'].map({0: 'Tidak Bagus', 1: 'Bagus'})
 
-            with col2:
-                st.subheader("Rata-rata Harga per Kategori Prediksi")
-                avg_price = dashboard_data.groupby("prediction")["price"].mean()
-                fig2, ax2 = plt.subplots()
-                ax2.bar(labels, avg_price, color=["red", "green"])
-                ax2.set_ylabel("Harga Rata-rata")
-                st.pyplot(fig2)
+            chart = alt.Chart(distribusi).mark_arc().encode(
+                theta='Jumlah',
+                color='Kategori'
+            ).properties(title="Distribusi Target (Bagus vs Tidak Bagus)")
 
-            # Tambahan: Distribusi Horsepower
-            st.subheader("Distribusi Horsepower per Prediksi")
-            fig3, ax3 = plt.subplots()
-            for pred in dashboard_data["prediction"].unique():
-                subset = dashboard_data[dashboard_data["prediction"] == pred]
-                ax3.hist(subset["horsepower"], bins=10, alpha=0.5, label=f"Prediksi {pred}")
-            ax3.set_xlabel("Horsepower")
-            ax3.set_ylabel("Frekuensi")
-            ax3.legend()
-            st.pyplot(fig3)
-
-    else:
-        st.warning("Data untuk dashboard tidak tersedia. Upload file hasil_prediksi.csv ke project Anda.")
+            st.altair_chart(chart, use_container_width=True)
+    except FileNotFoundError:
+        st.error("File hasil_prediksi.csv tidak ditemukan. Upload file untuk melihat analitik.")
