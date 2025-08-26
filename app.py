@@ -1,20 +1,22 @@
 import streamlit as st
 import pandas as pd
 import joblib
+import os
 
 # ==========================
 # Load data dan model
 # ==========================
 @st.cache_resource
-def load_data():
-    return pd.read_csv("hasil_prediksi.csv")
+def load_resources():
+    base_dir = os.path.dirname(__file__)  # folder tempat app.py berada
+    data_path = os.path.join(base_dir, "hasil_prediksi.csv")
+    model_path = os.path.join(base_dir, "car_classification_model.joblib")
 
-@st.cache_resource
-def load_model():
-    return joblib.load("car_classification_model.joblib")
+    df = pd.read_csv(data_path)
+    model = joblib.load(model_path)
+    return df, model
 
-df = load_data()
-model = load_model()
+df, model = load_resources()
 
 # ==========================
 # Sidebar Navigasi
@@ -26,19 +28,19 @@ page = st.sidebar.radio("Pilih Halaman:", ["Informasi Mobil", "Prediksi Mobil"])
 # Halaman 1: Informasi Mobil
 # ==========================
 if page == "Informasi Mobil":
-    st.title("Informasi Mobil")
+    st.title("📊 Informasi Mobil")
     st.write("Berikut adalah data mobil dari file **hasil_prediksi.csv**:")
 
     st.dataframe(df)
 
-    st.subheader("Statistik Data")
+    st.subheader("Ringkasan Statistik")
     st.write(df.describe(include="all"))
 
 # ==========================
 # Halaman 2: Prediksi Mobil
 # ==========================
 elif page == "Prediksi Mobil":
-    st.title("Prediksi Mobil")
+    st.title("🔮 Prediksi Mobil")
     st.write("Isi form berikut untuk memprediksi kelas mobil:")
 
     # ==== INPUT FORM ====
@@ -95,6 +97,7 @@ elif page == "Prediksi Mobil":
 
         try:
             prediction = model.predict(input_data)
-            st.success(f"🔮 Hasil Prediksi: {prediction[0]}")
+            st.success(f"✅ Hasil Prediksi: {prediction[0]}")
         except Exception as e:
             st.error(f"Terjadi error saat prediksi: {e}")
+
