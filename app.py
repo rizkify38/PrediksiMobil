@@ -78,6 +78,7 @@ elif page == "Prediksi Mobil":
             }])
 
             try:
+                # Prediksi
                 prediction = model.predict(input_data)[0]
 
                 # Jika model mendukung probabilitas
@@ -112,3 +113,4 @@ elif page == "Tren Harga Mobil":
             st.error("Data prediksi_mobil tidak memiliki kolom 'year' dan 'price'.")
     else:
         st.warning("Data prediksi_mobil kosong atau file tidak ditemukan.")
+
