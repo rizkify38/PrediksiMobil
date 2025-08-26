@@ -6,3 +6,6 @@ matplotlib
 joblib
 altair
 plotly
+joblib
+cloudpickle
+dill
